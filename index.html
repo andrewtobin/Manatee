@@ -36,83 +36,162 @@
 		    </div>
 		</div>
 		<div data-role="content">
-			<ul data-role="listview"  data-inset="false" data-bind="foreach: people">
-				<li data-bind="style: { backgroundColor: background }">
-					<a href="#">
-                        <img data-bind="attr: { src: photo }"></img>
-						<h2 data-bind="text: name"></h2>
-						<p><span data-bind="text: location().name"></span></p>
-						<p><span data-bind="text: back"></span></p>
-					</a>
-				</li>
-			</ul>
+			<div data-bind="visible: (selectedPerson() == null)">
+				<ul data-role="listview"  data-inset="false" class="ui-icon-alt" data-bind="foreach: people">
+					<li data-bind="click: $parent.selectPerson">
+						<a href="#">
+	                        <img data-bind="attr: { src: photoUrlLink }"></img>
+							<h2 data-bind="text: nickname"></h2>
+							<p><span data-bind="text: currentLocation"></span></p>
+							<p><span data-bind="text: backTime"></span></p>
+						</a>
+					</li>
+				</ul>
+			</div>
+			<div data-bind="visible: (selectedPerson() != null && selectedPerson().currentLocation() == null)">
+				<div data-inset="false" >
+					<button data-theme="e" data-corners="false" class="ui-icon-alt" data-iconpos="left" data-icon="arrow-l"
+						data-bind="click: clearSelectedPerson">
+						<span data-bind="text: selectedPerson() == null ? '' : selectedPerson().nickname"></span>
+					</button>
+				</div>
+				<p />
+				<ul id="locations" data-role="listview"  data-inset="false" class="ui-icon-alt" data-bind="foreach: locations">
+					<li data-bind="click: $parent.selectLocation">
+						<a href="#">
+	                     	<h2 data-bind="text: name"></h2>
+						</a>
+					</li>
+				</ul>
+			</div>
+			
+			<div data-bind="visible: (selectedPerson() != null && selectedPerson().currentLocation() != null)">
+				<div data-inset="false" >
+					<button data-theme="e" data-corners="false" class="ui-icon-alt" data-iconpos="left" data-icon="arrow-l"
+						data-bind="click: clearSelectedPerson">
+						<span data-bind="text: selectedPerson() == null ? '' : selectedPerson().nickname"></span>
+					</button>
+					<button data-theme="b" data-corners="false" class="ui-icon-alt" data-iconpos="left" data-icon="arrow-l"
+						data-bind="click: clearSelectedLocation">
+						<span data-bind="text: selectedPerson() == null ? '' : selectedPerson().currentLocation"></span>
+					</button>
+				</div>
+				<p />
+				<ul id="times" data-role="listview"  data-inset="false" class="ui-icon-alt" data-bind="foreach: times">
+					<li data-bind="click: $parent.selectTime">
+						<a href="#">
+	                     	<h2 data-bind="text: name"></h2>
+						</a>
+					</li>
+				</ul>
+			</div>
+			
         </div>
+        
         <script type="text/javascript" src="cordova-2.7.0.js"></script>
         <script type="text/javascript" src="js/jquery-2.0.2.min.js"></script>
         <script type="text/javascript" src="js/jquery.mobile-1.3.1.min.js"></script>
         <script type="text/javascript" src="js/knockout-2.2.1.js"></script>
         <script type="text/javascript" src="js/moment.min.js"></script>
+        <script src="https://manatee.azure-mobile.net/client/MobileServices.Web-1.0.0.min.js"></script>
         <script type="text/javascript" src="js/index.js"></script>
         <script type="text/javascript">
             app.initialize();
             
-            $(function () {
-	            var personModel = function (id, name, location, time, duration, colourIndex, photo, parent) {
+            $(function() {
+	            var client = new WindowsAzure.MobileServiceClient("https://tobintest.azure-mobile.net/", "saUpHiQRlrfOeaASRHYOUfVOmRVxiX88");
+	            var locations = client.getTable("locations");
+	            var agents = client.getTable("agents");
+
+           		var agentModel = function (id, nickname, color, photoUrl, currentLocation, returnTime, loggedTime, isActive, parent) {
 	                var self = this;
+	
 	                self.parent = parent;
 	
 	                self.id = id;
-	                self.name = name;
-	                self.location = ko.observable(location);
-	                self.time = ko.observable(time);
-	                self.duration = ko.observable(duration);
-	                self.background = ko.observable(self.parent.colours()[colourIndex].replace('#FF', '#'));
-	                self.photo = 'img/' + self.name.toLowerCase() + '.png';
+	                self.nickname = ko.observable(nickname);
+	                self.color = ko.observable(color);
+	                self.photoUrl = ko.observable(photoUrl);
+	                self.currentLocation = ko.observable(currentLocation);
+	                self.returnTime = ko.observable(returnTime);
+	                self.loggedTime = ko.observable(loggedTime);
+	                self.isActive = ko.observable(isActive);
 	
-	                self.back = ko.observable(null);
+	                self.backTime = ko.computed(function() {
+	                    return self.returnTime() == null ? '' : 'Returning ' + moment(self.returnTime()).fromNow();
+	                });
 	
-	                self.tick = function () {
-	                	console.log(self.name + ' - ' + moment(self.time()).format('MMMM Do YYYY, h:mm:ss a'));
-	                    self.time() == null || self.duration() == null ? self.back('') : self.back('Returning ' + moment(self.time()).add('minutes', self.duration().minutes).fromNow());
-	                };
+	                self.photoUrlLink = ko.computed(function() {
+	                    return self.photoUrl() == null ? null : 'img/' + self.photoUrl().toLowerCase();
+	                });
 	
-	                self.setTimeLocation = function (newTime, newLocation) {
-	                    self.time(new Date());
-	                    self.location(newLocation);
-	                    self.duration(newTime);
-	
-	                    self.tick();
-	                };
-	
-	                self.initialize = function () {
-	                    self.tick();
-	                };
+	                self.isEditing = ko.observable(false);
 	
 	                self.save = function () {
-	                    $.ajax({
-	                        type: 'PUT',
-	                        url: 'http://lt-bygpbw1:8000/api/location/' + self.id,
-	                        contentType: "application/json",
-	                        data: JSON.stringify({
-	                            UserId: self.id,
-	                            AgentDuration: self.duration() == null ? null : self.duration().id,
-	                            AgentLocation: self.location() == null ? null : self.location().id,
-	                            AgentLocationUpdateTime: self.time()
-	                        })
-	                    })
-	                        .done(function () {
-	                            console.log('saved');
-	                        })
-	                        .fail(function (msg) {
-	                            console.log('failed: ' + msg);
-	                        });
+	                    self.isEditing(false);
+	
+	                    if (self.id === null) {
+	                        self.create();
+	                    } else {
+	                        self.update();
+	                    }
 	                };
 	
-	                self.initialize();
+	                self.update = function () {
+	                    var agent = {
+	                        id: self.id,
+	                        nickname: self.nickname(),
+	                        color: self.color(),
+	                        photoUrl: self.photoUrl(),
+	                        currentLocation: self.currentLocation(),
+	                        returnTime: self.returnTime(),
+	                        loggedTime: self.loggedTime(),
+	                        isActive: self.isActive()
+	                    };
+	
+	                    agents.update(agent)
+	                        .done(
+	                            function (success) {
+	                                parent.initialize();
+	                            },
+	                            function (error) {
+	                                console.log(error);
+	                                alert(error);
+	                            }
+	                        );
+	                };
+	
+	                self.create = function () {
+	                    var agent = {
+	                        nickname: self.nickname(),
+	                        color: self.color(),
+	                        photoUrl: self.photoUrl(),
+	                        isActive: true
+	                    };
+	
+	                    agents.insert(agent)
+	                        .done(
+	                            function (success) {
+	                                parent.initialize();
+	                            },
+	                            function (error) {
+	                                console.log(error);
+	                                alert(error);
+	                            }
+	                        );
+	                };
 	            };
-	            
-	            
-	            var viewModel = function () {
+	
+	            var locationModel = function(id, name, parent) {
+	                var self = this;
+	
+	                self.parent = parent;
+	
+	                self.id = id;
+	                self.name = ko.observable(name);
+	            };
+	
+	            var viewModel = function() {
 	                var self = this;
 	
 	                self.people = ko.observableArray();
@@ -126,69 +205,79 @@
 	                    { id: '4hours', name: '4 hours', minutes: 240 },
 	                    { id: 'Rest of Day', name: 'Rest of Day', minutes: 0 }]);
 	
-	                self.colours = ko.observableArray(['#FFd13d3d', '#FFd16e3d', '#FFd1d13d', '#FF3dd13d', '#FF3dd1d1',
-	                    '#FF3da0d1', '#FF3d6ed1', '#FF3d3dd1', '#FF623dd1', '#FFd274e3']);
-	
-	                // Set default locations
-	                self.locations([{ id: 'DSK', name: 'At Desk' }, { id: 'ABY', name: 'Abby' }, { id: 'COM', name: 'Comp Room' }, { id: 'MIL', name: 'Feedmill' }, { id: 'GAT', name: 'Gatehouse' },
-	                    { id: 'HIL', name: 'Hillside' }, { id: 'HR', name: 'Human Resources' }, { id: 'LNG', name: 'Lung' }, { id: 'ADM', name: 'Main Office' },
-	                    { id: 'MLT', name: 'Malt House' }, { id: 'MD1', name: 'Module 1 / R & I' }, { id: 'MD2', name: 'Module 2' }, { id: 'MD3', name: 'Module 3' },
-	                    { id: 'MD4', name: 'Module 4' }, { id: 'MD5', name: 'Module 5' }, { id: 'OXD', name: 'Oxdale Mill' }, { id: 'WDL', name: 'Woodlands' },
-	                    { id: 'LCH', name: 'Out to Lunch' }, { id: 'OFF', name: 'Offsite' }, { id: 'GFD', name: 'Gone For The Day' }]);
-	
 	                self.selectedPerson = ko.observable();
-	                self.selectedLocation = ko.observable();
-
-	                self.selectPerson = function (p) {
+	
+	                self.selectPerson = function(p) {
 	                    $('#people').animate({ left: '-350px' }, 500);
+	                    p.currentLocation(null);
+	                    p.returnTime(null);
 	                    self.selectedPerson(p);
 	                };
 	
-	                self.selectLocation = function (location) {
-	                    self.selectedLocation(location);
-	                    self.selectedPerson().setTimeLocation(null, location);
+	                self.selectLocation = function(location) {
+	                    self.selectedPerson().currentLocation(location.name());
 	                };
 	
-	                self.selectTime = function (time) {
-	                    self.selectedPerson().setTimeLocation(time, self.selectedLocation());
+	                self.selectTime = function(time) {
+	                    self.selectedPerson().returnTime(moment(new Date()).add('minutes', time.minutes));
+	                    self.selectedPerson().loggedTime(new Date());
 	                    self.selectedPerson().save();
 	
 	                    //chat.server.locationChanged(self.selectedPerson().name, self.selectedPerson().location(), self.selectedPerson().time(), self.selectedPerson().duration());
 	
-	                    self.selectedLocation(null);
 	                    self.selectedPerson(null);
+	                    
 	                };
-		
-	                self.initialize = function () {
-						console.log("-----=> Initialising VM");
+	
+					self.clearSelectedLocation = function() {
+						self.selectedPerson().currentLocation(null);
+					};
+					
+					self.clearSelectedPerson = function() {
+						self.selectedPerson(null);
+					};
+	
+	                self.initialize = function() {
+	                	self.selectedPerson(null);
+	                
 	                    // Set up people/locations from data
-	                    $.ajax({
-	                    	url: 'http://lt-bygpbw1.qafmeats.com.au:8000/api/location',
-	                    	type: 'GET', 
-	                    	crossDomain: true,
-	                    	dataType: 'json'
-	                    })
-	                    .done(function (data) {
-                			console.log("-----=> manatee.....getting data");
-                			self.people(ko.utils.arrayMap(data, function (item) {
-                    			return new personModel(item.UserId, item.AgentNickname, $.grep(self.locations(), function (n, i) { return n.id == item.AgentLocation; })[0] || { id: '', name: '' },
-                        			moment(item.AgentLocationUpdateTime, "YYYY-MM-DDTHH:mm:ss"), $.grep(self.times(), function (n, i) { return n.id == item.AgentDuration; })[0] || null,
-                        			item.AgentColourIndex, item.AgentPhoto, self);
-                			}));
-	                   	})
-	                   	.fail(function(data) { console.log("-----=> error: " + JSON.stringify(data)); });
+	                    var agentsQuery = agents.where({ isActive: true })
+	                        .read()
+	                        .done(
+	                            function (success) {
+	                                self.people(ko.utils.arrayMap(success, function (p) {
+	                                    return new agentModel(p.id, p.nickname, p.color, p.photoUrl, p.currentLocation, p.returnTime, p.loggedTime, p.isActive, self);
+	                                }));
+	                            },
+	                            function (error) {
+	                                console.log(error);
+	                                alert(error);
+	                            }
+	                        );
+	
+	                    var locationsQuery = locations
+	                        .read()
+	                        .done(
+	                            function(success) {
+	                                self.locations(ko.utils.arrayMap(success, function(l) {
+	                                    return new locationModel(l.id, l.name, self);
+	                                }));
+	                            },
+	                            function(error) {
+	                                console.log(error);
+	                                alert(error);
+	                            }
+	                        );
 	                };
 	            };
-		
-				console.log("-----=> Starting");
 	
-		        var vm = new viewModel();
+	            var vm = new viewModel();
+	            window.vm = vm;
 	
 	            ko.applyBindings(vm);
 	            vm.initialize();
-            
-				console.log("-----=> Testing");        		
 	        });
+
         </script>
     </body>
 </html>
