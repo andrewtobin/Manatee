@@ -105,8 +105,9 @@
 
            		var agentModel = function (id, nickname, color, photoUrl, currentLocation, returnTime, loggedTime, isActive, parent) {
 	                var self = this;
-	
+		
 	                self.parent = parent;
+					self.old = {};
 	
 	                self.id = id;
 	                self.nickname = ko.observable(nickname);
@@ -126,6 +127,28 @@
 	                });
 	
 	                self.isEditing = ko.observable(false);
+	                
+	                self.edit = function() {
+	                	self.isEditing(true);
+	                	self.old.nickname = self.nickname();
+	                	self.old.color = self.color();
+	                	self.old.photoUrl = self.photoUrl();
+	                	self.old.currentLocation = self.currentLocation();
+	                	self.old.returnTime = self.returnTime();
+	                	self.old.loggedTime = self.loggedTime();
+	                	self.old.isActive = self.isActive();
+	                };
+	                
+	                self.cancelEdit = function() {
+	                	self.nickname(self.old.nickname);
+	                	self.color(self.old.color);
+	                	self.photoUrl(self.old.photoUrl);
+	                	self.currentLocation(self.old.currentLocation);
+	                	self.returnTime(self.old.returnTime);
+	                	self.loggedTime(self.old.loggedTime);
+	                	self.isActive(self.old.isActive);
+	                	self.isEditing(false);
+	                };
 	
 	                self.save = function () {
 	                    self.isEditing(false);
@@ -208,7 +231,7 @@
 	                self.selectedPerson = ko.observable();
 	
 	                self.selectPerson = function(p) {
-	                    $('#people').animate({ left: '-350px' }, 500);
+	                    p.edit();
 	                    p.currentLocation(null);
 	                    p.returnTime(null);
 	                    self.selectedPerson(p);
@@ -234,6 +257,7 @@
 					};
 					
 					self.clearSelectedPerson = function() {
+						self.selectedPerson().cancelEdit();
 						self.selectedPerson(null);
 					};
 	
